@@ -5,12 +5,11 @@
 *	Purpose: SQL query to generate LOCUS scores
 *********************************************************************/
 /*UPDATES*/
---2019-01-14 (JD): The 'all agencies' piece was incorrectly looking at agency IDs.
---2020-03-05 (JD): Converting this to all be done in SQL
---2020-05-22 (JD): Converting to new program codes in missing flag logic. Other agency substitution for missing scores no longer applies.
---2020-07-16 (JD): Changing query for Python conversion
-/*Declare query assessment date (will look for scores up to one month after this date)*/
+--2019-01-14: The 'all agencies' piece was incorrectly looking at agency IDs.
+--2020-03-05: Converting this to all be done in SQL
+--2020-05-22: Converting to new program codes in missing flag logic. Other agency substitution for missing scores no longer applies.
 SET NOCOUNT ON;
+/*Declare query assessment date (will look for scores up to one month after this date)*/
 DECLARE @calcDate DATE;
 SET @calcDate = :calc_date;
 
@@ -57,7 +56,7 @@ WHERE a.LOCUS IS NULL
 ALTER TABLE #rsLOCUSout ADD LOCUS_missDat CHAR(1);
 
 UPDATE #rsLOCUSout
-SET LOCUS_missDat = CASE WHEN program NOT IN('MOP', '400', '401', '2X1', '3A1', '3B1') THEN 'N' --Not a mental health benefit: not required
+SET LOCUS_missDat = CASE WHEN program NOT IN('MHO', 'MOP', '400', '401') THEN 'N' --Not a mental health benefit: not required
 						WHEN age_group NOT IN('A', 'G') THEN 'N' --Not an adult: not required
 						WHEN LOCUS IS NOT NULL THEN 'N' --Not missing
 						ELSE 'Y' END --Required and missing
