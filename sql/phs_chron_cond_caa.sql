@@ -7,19 +7,14 @@ WITH conds AS(
 		ELSE 'caa_other' END AS condition_cat
 	, 1 AS indicator
 	FROM ma_cond_ass
-),
-samp_auths AS(
-	SELECT TOP 100 auth_no
-	FROM au_master
-	WHERE program = '2X1'
-		AND start_date >= '2020-01-01'
 )
 SELECT a.auth_no
+, a.p1_id
 , ISNULL(caa_asthma, 0) AS caa_asthma
 , ISNULL(caa_diabetes, 0) AS caa_diabetes
 , ISNULL(caa_copd, 0) AS caa_copd
 , ISNULL(caa_cvd, 0) AS caa_cvd
-FROM samp_auths AS a
+FROM #phs_chron_cond_temp AS a
 LEFT JOIN (
 	SELECT *
 	FROM conds AS a

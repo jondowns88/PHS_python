@@ -9,7 +9,7 @@
 
 /*Declare the assessment date*/
 DECLARE @edate DATE;
-SET @edate = {calc_date};
+SET @edate = :calc_date;
 
 /*Get all kids with history of foster care*/
 /*Residential code indicative of foster care*/
@@ -28,7 +28,7 @@ fostCov AS(
   	GROUP BY kcid
 )
 SELECT DISTINCT a.*, ISNULL(FOSTR, 0) AS FOSTR
-FROM  {`temp_tab_in`} AS a LEFT JOIN
+FROM #phs_foster_temp AS a LEFT JOIN
 (
 	SELECT *
 	FROM fostHome

@@ -1,3 +1,7 @@
+##########################################
+#   Load packages
+##########################################
+#Public packages
 import os
 import sys
 import pandas as pd
@@ -9,25 +13,46 @@ import datetime
 import math
 import sqlparams
 
-#Import library for this project
+#Custom modules for this project
 PYTHONPATH = sys.path.insert(0, os.getcwd())
-from model import get_clients as model
+from model import inputs as inputs
+from db import connections as connections
 
 ##########################################
-#   Connect to server
+#   Connect to servers
 ##########################################
-#Make connection string
-conn_string = urllib.parse.quote_plus("DRIVER={SQL Server Native client 11.0};"
-                                r"SERVER=KCITEC2SQEPRP;DATABASE=php96;"
-                                r"Trusted_Connection=yes;MultiSubnetFailover=Yes;")
+#Connect to hhsaw
+hhsaw_engine = connections.hhsaw_engine()
+hhsaw = hhsaw_engine.connect()
+
+#Speed up table loading
+@event.listens_for(hhsaw_engine, 'before_cursor_execute')
+def receive_before_cursor_execute(hhsaw, cursor, statement,
+    params, context, executemany):
+    if executemany:
+        cursor.fast_executemany = True
+        cursor.commit()
 
 #Connect to php96
-engine = create_engine("mssql+pyodbc:///?odbc_connect=%s" % conn_string)
-conn = engine.connect()
+php96_engine = connections.php96_engine()
+php96 = php96_engine.connect()
 
-#I have no idea what this does, but the internet says it speeds up creation of temp tabs
-@event.listens_for(engine, 'before_cursor_execute')
-def receive_before_cursor_execute(conn, cursor, statement, params, context, executemany):
+#Speed up table loading
+@event.listens_for(php96_engine, 'before_cursor_execute')
+def receive_before_cursor_execute(php96, cursor, statement,
+    params, context, executemany):
+    if executemany:
+        cursor.fast_executemany = True
+        cursor.commit()
+
+#Connect to phclaims
+phclaims_engine = connections.phclaims_engine()
+phclaims = phclaims_engine.connect()
+
+#Speed up table loading
+@event.listens_for(phclaims_engine, 'before_cursor_execute')
+def receive_before_cursor_execute(phclaims, cursor, statement,
+    params, context, executemany):
     if executemany:
         cursor.fast_executemany = True
         cursor.commit()
@@ -45,12 +70,19 @@ sda_start = pop_start + relativedelta(months = -4)
 sda_end = sda_start + relativedelta(months = +3, days = -1)
 
 ##########################################
-#   Get clients, run strat model
+#   Get clients and inputs
 ##########################################
-dat = model.get_clients(conn, pop_start, pop_end)
-dat2 = model.get_locus(dat, conn, calc_date = calc_date)
-dat3 = model.get_calocus(dat2, conn, calc_date = calc_date)
-print(dat2.shape)
-print(dat3.shape)
-print(list(dat2.columns))
-print(list(dat3.columns))
+dat = inputs.get_clients(php96, pop_start, pop_end)
+dat2 = inputs.get_locus(dat, php96, calc_date)
+dat3 = inputs.get_calocus(dat2, php96, calc_date)
+dat4 = inputs.get_foster(dat3, php96, calc_date)
+dat5 = inputs.get_homeless(dat4, php96, calc_date)
+dat6 = inputs.get_chronic_conditions(dat5, php96, phclaims, calc_date)
+dat7 = inputs.get_high_util(dat6, hhsaw, calc_date)
+dat8 = inputs.get_cj(dat7, php96, calc_date)
+
+#Check out data
+print(dat.shape)
+print(dat8.shape)
+print(list(dat.columns))
+print(list(dat8.columns))

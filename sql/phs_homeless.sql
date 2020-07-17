@@ -6,10 +6,10 @@
 *********************************************************************/
 /*Declare the assessment date*/
 DECLARE @edate DATE;
-SET @edate = {calc_date};
+SET @edate = :calc_date;
 
 SELECT k.*, 1 AS HMLES
-FROM {`temp_tab_in`} AS k
+FROM #phs_homeless_temp AS k
 INNER JOIN ep_residence AS a ON a.kcid = k.kcid
 INNER JOIN
 (
