@@ -18,7 +18,7 @@ def get_query(qry_string):
     return(sql)
 
 #Find the minimum of the day jail data were updated and the calc date
-def get_jail_date(calc_date):
+def get_jail_date(calc_date, conn):
     qry = "SELECT MAX(booking_start) FROM muni_jail"
     date = pd.read_sql_query(qry, conn).iloc[0].to_string().strip()
     date2 = datetime.datetime.strptime(date, "%Y-%m-%d").date()

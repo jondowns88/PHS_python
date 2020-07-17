@@ -79,7 +79,7 @@ dat4 = inputs.get_foster(dat3, php96, calc_date)
 dat5 = inputs.get_homeless(dat4, php96, calc_date)
 dat6 = inputs.get_chronic_conditions(dat5, php96, phclaims, calc_date)
 dat7 = inputs.get_high_util(dat6, hhsaw, calc_date)
-dat8 = inputs.get_cj(dat7, php96, calc_date)
+dat8 = inputs.get_cj(dat7, php96, inputs.get_jail_date(calc_date, php96))
 
 #Check out data
 print(dat.shape)
