@@ -12,11 +12,13 @@ from dateutil.relativedelta import relativedelta
 import datetime
 import math
 import sqlparams
+import re
 
-#Custom modules for this project
 PYTHONPATH = sys.path.insert(0, os.getcwd())
-from model import inputs as inputs
 from db import connections as connections
+from db import qryhelper as qryhelper
+from model import inputs as inputs
+from model import scoring as scoring
 
 ##########################################
 #   Connect to servers
@@ -80,9 +82,28 @@ dat5 = inputs.get_homeless(dat4, php96, calc_date)
 dat6 = inputs.get_chronic_conditions(dat5, php96, phclaims, calc_date)
 dat7 = inputs.get_high_util(dat6, hhsaw, calc_date)
 dat8 = inputs.get_cj(dat7, php96, inputs.get_jail_date(calc_date, php96))
+dat9 = inputs.get_asam(dat8, php96, calc_date)
+dat10 = inputs.get_idu(dat9, php96, calc_date)
+lul = scoring.get_score_lines(dat10, php96, calc_date)
 
-#Check out data
-print(dat.shape)
-print(dat8.shape)
-print(list(dat.columns))
-print(list(dat8.columns))
+######
+df_client = dat10
+df_score = lul
+conn = php96
+id_cols = ['auth_no', 'program', 'age_group', 'calc_date']
+sum_vals = {'score': 'sum', 'missing_data': 'max'}
+df_client_grp = df_score.groupby(id_cols).agg(sum_vals).reset_index()
+df_client_grp.to_sql('#phs_total_score', conn)
+
+######
+test_that_dat = df_client_grp.groupby('program').agg({'score': 'mean'}).reset_index()
+print(test_that_dat)
+print(dat10.columns)
+
+
+print(lul)
+print(dat9.shape)
+print(dat10.shape)
+print(lul.shape)
+print(dat10.columns)
+print(lul.columns)

@@ -58,10 +58,10 @@ LEFT JOIN
 WHERE a.CALOC IS NULL
 
 /*Assign missing data flags*/
-ALTER TABLE #rsCALOCUSout ADD CALOC_missDat CHAR(1);
+ALTER TABLE #rsCALOCUSout ADD CALOC_missing_data CHAR(1);
 
 UPDATE #rsCALOCUSout
-SET CALOC_missDat = CASE WHEN program NOT IN('MHO', 'MOP', '400', '401') THEN 'N' --Not a mental health benefit: can't be missing
+SET CALOC_missing_data = CASE WHEN program NOT IN('MHO', 'MOP', '400', '401') THEN 'N' --Not a mental health benefit: can't be missing
 						WHEN age_group != 'C' THEN 'N' --Not a child: can't be missing
 						WHEN CALOC IS NOT NULL THEN 'N' --Not missing
 						ELSE 'Y' END --Required and missing

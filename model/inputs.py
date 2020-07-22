@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 import os
+import sys
 import pyodbc
 import math
 import datetime
@@ -9,13 +10,9 @@ from dateutil.relativedelta import relativedelta
 import calendar
 import sqlparams
 
-#Function to automate the reading of queries.
-def get_query(qry_string):
-    qry_path = os.path.join(os.getcwd(), 'sql', qry_string)
-    qry_file = open(qry_path)
-    sql = qry_file.read()
-    qry_file.close()
-    return(sql)
+PYTHONPATH = sys.path.insert(0, os.getcwd())
+from db import qryhelper as qryhelper
+
 
 #Find the minimum of the day jail data were updated and the calc date
 def get_jail_date(calc_date, conn):
@@ -27,7 +24,7 @@ def get_jail_date(calc_date, conn):
 
 #Get clients in need of stratification
 def get_clients(conn, start_date, end_date):
-    sql = get_query('phs_strat_population.sql')
+    sql = qryhelper.get_query('phs_strat_population.sql')
     out = pd.read_sql_query(sql, conn, params = [start_date, end_date])
     return(out)
 
@@ -36,11 +33,11 @@ def get_locus(df, conn, calc_date):
     #Subset DF, make temp tab in SSMS
     key_vars = ['kcid', 'agency_id', 'auth_no', 'program', 'age_group']
     key_vars2 = ['kcid', 'agency_id', 'auth_no', 'program', 'age_group',
-        'LOCUS', 'LOCUS_missDat']
+        'LOCUS', 'LOCUS_missing_data']
     df_in = df[key_vars] #Subset input df
     df_in.to_sql('#phs_locus_temp', con = conn) #make temp table
     #Read in and parameterize query
-    sql = get_query('phs_locus.sql') #Read qry
+    sql = qryhelper.get_query('phs_locus.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     #Get result, join to main DF
@@ -56,11 +53,11 @@ def get_calocus(df, conn, calc_date):
     #Subset DF, make temp tab in SSMS
     key_vars = ['kcid', 'agency_id', 'auth_no', 'program', 'age_group']
     key_vars2 = ['kcid', 'agency_id', 'auth_no', 'program', 'age_group',
-        'CALOC', 'CALOC_missDat']
+        'CALOC', 'CALOC_missing_data']
     df_in = df[key_vars] #Subset input df
     df_in.to_sql('#phs_calocus_temp', con = conn) #make temp table
     #Read in and parameterize query
-    sql = get_query('phs_calocus.sql') #Read qry
+    sql = qryhelper.get_query('phs_calocus.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     #Get result, join to main DF
@@ -79,7 +76,7 @@ def get_foster(df, conn, calc_date):
     df_in = df[key_vars] #Subset input df
     df_in.to_sql('#phs_foster_temp', con = conn) #make temp table
     #Read in and parameterize query
-    sql = get_query('phs_foster.sql') #Read qry
+    sql = qryhelper.get_query('phs_foster.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     #Get result, join to main DF
@@ -87,7 +84,7 @@ def get_foster(df, conn, calc_date):
     result2 = result[key_vars2] #Subset
     out = df.merge(result2, how = 'left') #Merge to input df
     out['FOSTR'] = out['FOSTR'].fillna(0) #Replace NA's with 0
-    out['FOSTR_missDat'] = 'N' #Set missing flag to no (never missing)
+    out['FOSTR_missing_data'] = 'N' #Set missing flag to no (never missing)
     conn.execute("DROP TABLE IF EXISTS #phs_foster_temp")
     return(out)
 
@@ -99,7 +96,7 @@ def get_homeless(df, conn, calc_date):
     df_in = df[key_vars] #Subset input df
     df_in.to_sql('#phs_homeless_temp', con = conn) #make temp table
     #Read in and parameterize query
-    sql = get_query('phs_homeless.sql') #Read qry
+    sql = qryhelper.get_query('phs_homeless.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     #Get result, join to main DF
@@ -107,14 +104,14 @@ def get_homeless(df, conn, calc_date):
     result2 = result[key_vars2] #Subset
     out = df.merge(result2, how = 'left') #Merge to input df
     out['HMLES'] = out['HMLES'].fillna(0) #Replace NA's with 0
-    out['HMLES_missDat'] = 'N' #Set missing flag to no (never missing)
+    out['HMLES_missing_data'] = 'N' #Set missing flag to no (never missing)
     conn.execute("DROP TABLE IF EXISTS #phs_homeless_temp")
     return(out)
 
 #Get chronic conditions
 def get_chronic_conditions(df, php96_conn, phclaims_conn, calc_date):
     #PHClaims query
-    ph_sql = get_query('phs_chron_cond.sql') #Read qry
+    ph_sql = qryhelper.get_query('phs_chron_cond.sql') #Read qry
     ph_sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     ph_sql2, ph_params = ph_sp.format(ph_sql, {'calc_date':calc_date})
     ph_dat = pd.read_sql(ph_sql2, phclaims_conn, params = ph_params) #Get result
@@ -122,7 +119,7 @@ def get_chronic_conditions(df, php96_conn, phclaims_conn, calc_date):
     df_in = df[['auth_no', 'p1_id']]
     df_in.to_sql('#phs_chron_cond_temp', con = php96_conn)
     #PHP96 query
-    sql = get_query('phs_chron_cond_caa.sql') #Read qry
+    sql = qryhelper.get_query('phs_chron_cond_caa.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     php96_dat = pd.read_sql(sql2, php96_conn)
@@ -132,7 +129,7 @@ def get_chronic_conditions(df, php96_conn, phclaims_conn, calc_date):
                 'caa_copd': 0, 'caa_cvd': 0,
                 'ccw_diabetes': 0, 'ccw_asthma': 0,
                 'ccw_cvd': 0, 'ccw_copd': 0,
-                'CHRON_missDat': 'Y'}
+                'CHRON_missing_data': 'Y'}
     out = df.merge(for_merge, how = 'left').fillna(na_fill)
     #We need to max 2 columns for each condition.
     #Define the columns.
@@ -159,20 +156,49 @@ def get_high_util(df, conn, calc_date):
     df_in = df[['kcid']]
     df_in.to_sql('phs_hutil_temp', con = conn, schema = 'jdowns', index = False)
     #HHSAW query
-    sql = get_query('phs_high_util.sql') #Read qry
+    sql = qryhelper.get_query('phs_high_util.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     sql_out = pd.read_sql(sql2, conn, params = params) #Get result
     na_fill = {'nSRS': 0, 'nDTX': 0, 'nITA': 0, 'nED': 0, 'nIP': 0, 'HUTIL': 0}
     out = df.merge(sql_out, how = 'left').fillna(na_fill)
+    out['HUTIL_missing_data'] = 'N'
     return(out)
 
 #Get criminal justice events
 def get_cj(df, conn, calc_date):
-    sql = get_query('phs_cj.sql') #Read qry
+    sql = qryhelper.get_query('phs_cj.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     na_fill = {'NUMCJ': 0, 'LNGCJ': 0}
     sql_out = pd.read_sql(sql2, conn, params = params) #Get result
     out = df.merge(sql_out, how = 'left').fillna(na_fill) #Merge to input df
+    out['NUMCJ_missing_data'] = 'N'
+    out['LNGCJ_missing_data'] = 'N'
+    return(out)
+
+#Get ASAM scores
+def get_asam(df, conn, calc_date):
+    df_in = df[['kcid', 'agency_id']].drop_duplicates()
+    conn.execute("DROP TABLE IF EXISTS #phs_asam")
+    df_in.to_sql('#phs_asam', conn, index = False)
+    sql = qryhelper.get_query('phs_asam.sql') #Read qry
+    sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
+    sql2, params = sp.format(sql, {'calc_date':calc_date})
+    sql_out = pd.read_sql(sql2, conn, params = params) #Get result
+    out = df.merge(sql_out, how = 'left')
+    return(out)
+
+#Get injection drug use
+def get_idu(df, conn, calc_date):
+    df_in = df[['kcid']]
+    conn.execute("DROP TABLE IF EXISTS #phs_idu")
+    df_in.to_sql('#phs_idu', conn, index = False)
+    sql = qryhelper.get_query('phs_idu.sql')
+    sp = sqlparams.SQLParams('named', 'qmark')
+    sql2, params = sp.format(sql, {'calc_date':calc_date})
+    sql_out = pd.read_sql(sql2, conn, params = params)
+    na_fill = {'IDU': 0}
+    out = df.merge(sql_out, how = 'left').fillna({'IDU' : 0})
+    out['IDU_missing_data'] = 'N'
     return(out)

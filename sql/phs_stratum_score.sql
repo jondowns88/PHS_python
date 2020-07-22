@@ -12,7 +12,7 @@
 /*Create a CTE to restrict to covariates in the population model: need to make sure it is the right benefit type, age group, and model version for the iteration*/
 WITH inFile AS(
 	SELECT DISTINCT a.*
-	FROM {`temp_tab_in`} AS a
+	FROM #phs_score AS a
 	INNER JOIN cd_stratum_pop_model AS b ON 
 	/*Benefit type*/
 	a.program = b.program
@@ -27,12 +27,13 @@ SELECT a.auth_no
 , a.calc_date
 , a.metric
 , a.value
-, ISNULL(b.score, 0) AS score, a.missDat
+, ISNULL(b.score, 0) AS score
+, a.missing_data
 FROM inFile AS a
 	LEFT JOIN cd_stratum_pop_model AS b ON 
 		a.program = b.program
 			AND a.age_group = b.age_group /*Age group*/
-			AND a.metric = b.metric /*Same metric for score and value*/
+			AND TRIM(a.metric) = TRIM(b.metric) /*Same metric for score and value*/
 			AND a.value BETWEEN range_low AND range_high /*Within the value ranges to be assigned this score*/
 			AND calc_date BETWEEN b.start_date AND b.end_date /*Correct version of model for the calc date*/
 ORDER BY a.auth_no, a.metric

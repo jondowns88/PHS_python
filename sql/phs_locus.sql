@@ -54,10 +54,10 @@ LEFT JOIN
 WHERE a.LOCUS IS NULL
 
 /*Assign missing data flags*/
-ALTER TABLE #rsLOCUSout ADD LOCUS_missDat CHAR(1);
+ALTER TABLE #rsLOCUSout ADD LOCUS_missing_data CHAR(1);
 
 UPDATE #rsLOCUSout
-SET LOCUS_missDat = CASE WHEN program NOT IN('MOP', '400', '401', '2X1', '3A1', '3B1') THEN 'N' --Not a mental health benefit: not required
+SET LOCUS_missing_data = CASE WHEN program NOT IN('MOP', '400', '401', '2X1', '3A1', '3B1') THEN 'N' --Not a mental health benefit: not required
 						WHEN age_group NOT IN('A', 'G') THEN 'N' --Not an adult: not required
 						WHEN LOCUS IS NOT NULL THEN 'N' --Not missing
 						ELSE 'Y' END --Required and missing

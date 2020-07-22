@@ -27,7 +27,7 @@ FLAG AS(
 	SELECT DISTINCT a.[id_mcaid]
 	, CASE WHEN COALESCE(elig, 0) = 0 THEN 'Y' /*No eligibility in lookback period*/
   		WHEN COALESCE(claim, 0) = 0 THEN 'Y' /*No claims in lookback period*/
-  		ELSE 'N' END AS CHRON_missDat /*Medicaid information found*/
+  		ELSE 'N' END AS CHRON_missing_data /*Medicaid information found*/
 	FROM 
 	( --Enrolled in the past two years
   		SELECT id_mcaid, 1 AS elig
@@ -55,7 +55,7 @@ SELECT DISTINCT b.[id_mcaid] AS p1_id
 	THEN 1 ELSE 0 END AS [ccw_cvd]
 , ISNULL(ccw_asthma, 0) AS [ccw_asthma]
 , ISNULL(ccw_copd, 0) AS [ccw_copd]
-, CHRON_missDat
+, CHRON_missing_data
 FROM CTE AS a
 PIVOT
 (
