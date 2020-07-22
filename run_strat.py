@@ -84,7 +84,10 @@ dat7 = inputs.get_high_util(dat6, hhsaw, calc_date)
 dat8 = inputs.get_cj(dat7, php96, inputs.get_jail_date(calc_date, php96))
 dat9 = inputs.get_asam(dat8, php96, calc_date)
 dat10 = inputs.get_idu(dat9, php96, calc_date)
-lul = scoring.get_score_lines(dat10, php96, calc_date)
+
+#Now, score each model metric and create total score for each client
+score_lines = scoring.get_score_lines(dat10, php96, calc_date)
+#total_score =
 
 ######
 df_client = dat10
@@ -93,7 +96,9 @@ conn = php96
 id_cols = ['auth_no', 'program', 'age_group', 'calc_date']
 sum_vals = {'score': 'sum', 'missing_data': 'max'}
 df_client_grp = df_score.groupby(id_cols).agg(sum_vals).reset_index()
-df_client_grp.to_sql('#phs_total_score', conn)
+df_client_grp.to_sql('#phs_strat_level', conn)
+sql = qryhelper.get_query('phs_strat_level.sql')
+sql_out = pd.read_sql(sql, conn)
 
 ######
 test_that_dat = df_client_grp.groupby('program').agg({'score': 'mean'}).reset_index()
