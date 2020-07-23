@@ -101,20 +101,38 @@ total_score = scoring.get_total_score(dat8, score_lines, php96)
 ##SDA (final step before upload)##
 #Drop auth start/end dates. Change name of PHS start/end for upload into PHP96.
 drop_cols = ['start_date', 'expire_date']
-all_data = sda.get_sda(total_score, php96, sda_start, sda_end).drop(columns = drop_cols)
+all_data = sda.get_sda(total_score,
+    php96,
+    sda_start,
+    sda_end).drop(columns = drop_cols)
 
 ##########################################
 #   Create production tables, load production data
 ##########################################
 #Grab columns that go into AU_STRATUM
-au_stratum = output.get_au_stratum(all_data)
+au_stratum = output.get_au_stratum(all_data) #get data
+output.update_au_stratum(au_stratum, php96) #load to prod
 
-df_in = au_stratum
-conn =
+#Get stratum IDs for other table products.
+au_stratum_ids = output.get_au_stratum_ids(pop_start, php96)
 
+#Grab columns that go into AU_STRATUM_SCORE
+au_stratum_score = output.get_au_stratum_score(score_lines,
+    au_stratum_ids) #get data
+output.update_au_stratum_score(au_stratum_score, php96) #load to prod
 
-#Update AU_STRATUM in php96
+#Grab columns that go into AU_STRATUM_SDA
+au_stratum_sda = output.get_au_stratum_sda(all_data) #get data
+output.update_au_stratum_sda(au_stratum_sda, php96)
 
-#Next, grab columns that go into au_stratum_score
-au_stratum_score_cols = ['metric', 'value', 'score', 'missing_data']
-au_stratum_score = score_lines[au_stratum_score_cols]
+#Run the script to link SDA records to AU_STRATUM
+sda_link_qry = qryhelper.get_query('phs_sda_link.sql')
+php96.execute(sda_link_qry)
+
+#Now, update AU_STRATUM_SHADOW with data from AU_STRATUM
+au_stratum_shadow_qry = qryhelper.get_query('update_au_stratum_shadow.sql')
+php96.execute(au_stratum_shadow_qry)
+
+#Finally, for Q3 2020, we need to set all AU_STRATUM pay multipliers to 1.00
+update_shadow_payments_qry = qryhelper.get_query('update_shadow_payments.sql')
+php96.execute(update_shadow_payments_qry)

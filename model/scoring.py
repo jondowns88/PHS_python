@@ -54,8 +54,8 @@ def get_total_score(df_client, df_score, conn):
     #Get total score as sum of scorelines
     df_score_grp = df_score.groupby(id_cols).agg(sum_vals).reset_index()
     #Load data to SQL
-    conn.execute("DROP TABLE IF EXISTS #phs_strat_level")
-    df_score_grp.to_sql('#phs_strat_level', conn)
+    conn.execute("DROP TABLE IF EXISTS ##phs_strat_level")
+    df_score_grp.to_sql('##phs_strat_level', conn)
     #Read in and execute query
     sql = qryhelper.get_query('phs_strat_level.sql')
     sql_out = pd.read_sql(sql, conn)

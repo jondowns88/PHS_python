@@ -12,7 +12,7 @@
 -- 6/3/2020 (JD): Added comments and explanations for presentation at ISAC
 
 /*
-	Note: In production, this code is called in R. Users will need to replace {`temp_tab_in`} with
+	Note: In production, this code is called in R. Users will need to replace ##PME_TEMP_324720 with
 			a temporary table that contains a list au_stratum_id's for the clients who need to be linked.
 */
 --------------------------------------------------------------------------
@@ -36,7 +36,7 @@ SELECT a.kcid
 INTO #temp_1
 FROM kcrsn.au_master AS a--Auths database
 INNER JOIN kcrsn.au_stratum AS b ON a.auth_no = b.auth_no --Same auth
-	AND b.au_stratum_id IN(SELECT au_stratum_id FROM {`temp_tab_in`}) --User-defined list of clients needing SDA payment multiplier determination
+	AND (b.stratum_sda_id IS NULL AND b.start_date >= '2020-01-01') --Not in first stratification and not yet linked.
 	AND b.start_date >= '2020-01-01' --Not in September 2019 (SDA first ran in 1/2020)
 WHERE program IN('2X1', '3A1', '3B1', 'S01', 'S02', '400', '401', '500', '501') --Tiered MH/SUD program
 	AND status_code IN('AA', 'TM', 'PN') --Active/terminated/pending
@@ -218,7 +218,7 @@ LEFT JOIN (
 --------------------------------------------------------------------------
 --	Update production table with linked SDA, SDA payment multiplier, and SDA rule
 --------------------------------------------------------------------------
-UPDATE au_stratum
+UPDATE kcrsn.au_stratum
 SET sda_rule = b.new_sda_rule
 , sda_pay_multiplier = b.new_sda_pay_multiplier
 , stratum_sda_id = b.new_stratum_sda_id

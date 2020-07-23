@@ -35,7 +35,7 @@ def get_locus(df, conn, calc_date):
     key_vars2 = ['kcid', 'agency_id', 'auth_no', 'program', 'age_group',
         'LOCUS', 'LOCUS_missing_data']
     df_in = df[key_vars] #Subset input df
-    df_in.to_sql('#phs_locus_temp', con = conn) #make temp table
+    df_in.to_sql('#phs_locus_temp', con = conn, index = False) #make temp table
     #Read in and parameterize query
     sql = qryhelper.get_query('phs_locus.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
@@ -55,7 +55,7 @@ def get_calocus(df, conn, calc_date):
     key_vars2 = ['kcid', 'agency_id', 'auth_no', 'program', 'age_group',
         'CALOC', 'CALOC_missing_data']
     df_in = df[key_vars] #Subset input df
-    df_in.to_sql('#phs_calocus_temp', con = conn) #make temp table
+    df_in.to_sql('#phs_calocus_temp', con = conn, index = False) #make temp table
     #Read in and parameterize query
     sql = qryhelper.get_query('phs_calocus.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
@@ -75,7 +75,7 @@ def get_foster(df, conn, calc_date):
     key_vars2 = ['kcid', 'auth_no', 'FOSTR']
     df_in = df[key_vars] #Subset input df
     conn.execute("DROP TABLE IF EXISTS #phs_foster_temp")
-    df_in.to_sql('#phs_foster_temp', con = conn) #make temp table
+    df_in.to_sql('#phs_foster_temp', con = conn, index = False) #make temp table
     #Read in and parameterize query
     sql = qryhelper.get_query('phs_foster.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
@@ -95,7 +95,7 @@ def get_homeless(df, conn, calc_date):
     key_vars2 = ['kcid', 'auth_no', 'HMLES']
     df_in = df[key_vars] #Subset input df
     conn.execute("DROP TABLE IF EXISTS #phs_homeless_temp")
-    df_in.to_sql('#phs_homeless_temp', con = conn) #make temp table
+    df_in.to_sql('#phs_homeless_temp', con = conn, index = False) #make temp table
     #Read in and parameterize query
     sql = qryhelper.get_query('phs_homeless.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
@@ -118,7 +118,7 @@ def get_chronic_conditions(df, php96_conn, phclaims_conn, calc_date):
     #Subset data for PHP96 query
     df_in = df[['auth_no', 'p1_id']]
     php96_conn.execute("DROP TABLE IF EXISTS #phs_chron_cond_temp")
-    df_in.to_sql('#phs_chron_cond_temp', con = php96_conn)
+    df_in.to_sql('#phs_chron_cond_temp', con = php96_conn, index = False)
     #PHP96 query
     sql = qryhelper.get_query('phs_chron_cond_caa.sql') #Read qry
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
