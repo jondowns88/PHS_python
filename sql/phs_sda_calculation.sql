@@ -19,12 +19,12 @@
 --	6/3/2020 (JD): Added comments and clarity for presentation of the code at ISAC.
 --  6/17/2020 (JD): One calendar month rule implemented.
 /*
-	Note: In production, this script is called from R using the 'glue' package. This is why users will see text such as {`temp_tab_in`} instead of normal SQL syntax.
+	Note: In production, this script is called from R using the 'glue' package. This is why users will see text such as #phs_sda instead of normal SQL syntax.
 		  To run this script, users must first:
 			1) Create a list of clients that need SDA calculation.
 				--Include auth_no, kcid, program, and age_group (A/G/C).
 				--Store these columns in a temporary table. 
-				--Replace {`temp_tab_in`} with the name of your temporary table, in normal SQL syntax (e.g. #my_temp).
+				--Replace #phs_sda with the name of your temporary table, in normal SQL syntax (e.g. #my_temp).
 			2) Identify the start/end dates of the SDA calculation period:
 				--For Q1 stratifications, SDA runs from 9/1 - 11/30 of the prior year
 				--For Q2, SDA runs from 12/1 - 2/28 (2/29 if leap year)
@@ -39,8 +39,8 @@ SET NOCOUNT ON; --Helps with running queries in R.
 ---------------------------------------------------------
 /*Declare report dates*/
 DECLARE @sdate DATE, @edate DATE, @mo1_start DATE, @mo1_end DATE, @mo2_start DATE, @mo2_end DATE, @mo3_start DATE, @mo3_end DATE;
-SET @sdate = {start_date}; /*SDA calculation start date*/
-SET @edate = {end_date}; /*SDA calculation end date*/
+SET @sdate = :start_date; /*SDA calculation start date*/
+SET @edate = :end_date; /*SDA calculation end date*/
 
 --Calendar month calculation- set first/last days of each SDA month
 SET @mo1_start = @sdate;
@@ -76,12 +76,12 @@ SELECT a.* --Your temporary input table
 	WHEN a.program IN('S01', 'S02', 'SOP', '500', '501') THEN 'SUD'
 	ELSE '' END AS tx_focus
 INTO #cur_strats
-FROM  {`temp_tab_in`} AS a
-INNER JOIN au_stratum AS b ON a.auth_no = b.auth_no --Get stratifications
-LEFT JOIN cd_stratum_tier AS c ON a.program = c.program --Get service hours requested for strata (match on program/age/LOC)
+FROM  #phs_sda AS a
+INNER JOIN kcrsn.au_stratum AS b ON a.auth_no = b.auth_no --Get stratifications
+LEFT JOIN kcrsn.cd_stratum_tier AS c ON a.program = c.program --Get service hours requested for strata (match on program/age/LOC)
 	AND b.age_group = c.age_group 
 	AND b.strat_level = c.strat_level
-LEFT JOIN au_master AS d ON a.auth_no = d.auth_no --Join to auths active during that time
+LEFT JOIN kcrsn.au_master AS d ON a.auth_no = d.auth_no --Join to auths active during that time
 	WHERE 
 	(
 		b.start_date BETWEEN @sdate AND @edate --Quarter began during SDA period
@@ -137,7 +137,7 @@ WITH payTemp AS(
 	SELECT auth_no
 	, event_date
 	, SUM(CASE WHEN service_minutes < 0 THEN 0 ELSE service_minutes/60.0 END) AS svc_hrs
-	FROM ea_cpt_service
+	FROM kcrsn.ea_cpt_service
 	WHERE source_id NOT IN(3, 6, 7, 8)
 		AND auth_no IN(SELECT DISTINCT auth_no FROM #cur_strats) --In the group of auths we are calculating
 		AND event_date BETWEEN @sdate AND @edate --Within the SDA period
@@ -213,7 +213,7 @@ LEFT JOIN
 		WHEN program IN('S01', 'S02', 'SOP', '500', '501') THEN 'SUD'
 		ELSE '' END AS tx_focus
 	, agency_id
-	FROM au_master
+	FROM kcrsn.au_master
 	WHERE status_code IN('AA', 'TM')
 		AND kcid IN(SELECT kcid FROM #cur_sums) --To speed things up, only take KCIDs in our list
 ) AS b
@@ -247,8 +247,8 @@ SELECT a.kcid
 , c.svc_hrs_req AS prev_svc_hrs_req
 INTO #prev_strats
 FROM #cur_sums AS a
-INNER JOIN au_stratum AS b ON a.prev_auth_no = b.auth_no
-LEFT JOIN cd_stratum_tier AS c ON a.program = c.program
+INNER JOIN kcrsn.au_stratum AS b ON a.prev_auth_no = b.auth_no
+LEFT JOIN kcrsn.cd_stratum_tier AS c ON a.program = c.program
 	AND b.age_group = c.age_group
 	AND b.strat_level = c.strat_level
 WHERE 
@@ -301,7 +301,7 @@ WITH payTemp AS(
 	SELECT auth_no
 	, event_date
 	, SUM(CASE WHEN service_minutes < 0 THEN 0 ELSE service_minutes/60.0 END) AS prev_svc_hrs
-	FROM ea_cpt_service
+	FROM kcrsn.ea_cpt_service
 	WHERE source_id NOT IN(3, 6, 7, 8)
 		AND auth_no IN(SELECT DISTINCT prev_auth_no FROM #prev_strats) --In the group of auths we are calculating
 		AND event_date BETWEEN @sdate AND @edate --Within the SDA period
@@ -413,7 +413,7 @@ LEFT JOIN temp_2 AS b ON a.kcid = b.kcid AND a.auth_no = b.auth_no
 --The 'sda_link' program will handle exceptions to normal SDA processes (i.e. full-pay for new clients)
 
 --Sum enrollment days, hours expected, and hours delivered
-DROP TABLE IF EXISTS ##sda_final;
+DROP TABLE IF EXISTS #sda_final;
 SELECT kcid
 , auth_no
 , program
@@ -423,24 +423,27 @@ SELECT kcid
 , COALESCE(enroll_days, 0) + COALESCE(prev_enroll_days, 0) AS enroll_days --Enrollment days from both auths (if applicable)
 , (COALESCE(svc_hrs_expected, 0) + COALESCE(prev_svc_hrs_expected, 0)) AS hrs_expected --Hours expected from both auths
 , COALESCE(svc_hrs, 0) + COALESCE(prev_svc_hrs, 0) AS svc_hrs --Service hours delivered on both auths
-INTO ##sda_final
+INTO #sda_final
 FROM #cur_sums
 
 --Add a prorated service hours delivered metric and the SDA metric to the final table
-ALTER TABLE ##sda_final
+ALTER TABLE #sda_final
 ADD svc_hrs_prorated DEC(6,3)
 , sda DEC(6,3);
 
 --Calculated a pro-rated version of both service hours delivered and service hours expected
-UPDATE ##sda_final
+UPDATE #sda_final
 SET svc_hrs_prorated = CASE WHEN enroll_days = 0 THEN NULL --No enrollment days
 							ELSE 30.0*svc_hrs/enroll_days END, --Else, get pro-rated SVC hours
 	hrs_expected = CASE WHEN enroll_days = 0 THEN NULL --No enrollment days
 							ELSE 30.0*(hrs_expected/enroll_days) END --Otherwise
 
 --Finally, SDA is the ratio of prorated hours delivered / prorated hours expected
-UPDATE ##sda_final
+UPDATE #sda_final
 SET sda = CASE WHEN enroll_days < 28 THEN NULL --No SDA calculation: not enough enrollment
 				WHEN calendar_month = 0 THEN NULL --Not enrolled for a full calendar month
 				WHEN hrs_expected = 0 THEN NULL --No SDA calculation: no service hour expectation
 				ELSE svc_hrs_prorated/hrs_expected END --Otherwise, calculate SDA
+
+SELECT *
+FROM #sda_final

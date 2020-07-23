@@ -16,7 +16,7 @@ WITH ep AS(
 	SELECT kcid
 	, book_date
 	, ISNULL(release_date, book_date) AS release_date
-	FROM ep_jail
+	FROM kcrsn.ep_jail
 	WHERE (
 			book_date BETWEEN @lb_five_years AND @calc_date
 			OR ISNULL(release_date, book_date) BETWEEN @lb_five_years AND @calc_date
@@ -27,7 +27,7 @@ muni AS(
 	SELECT kcid_match AS kcid
 	, booking_start AS book_date
 	, ISNULL(booking_end, booking_start) AS release_date
-	FROM muni_jail
+	FROM kcrsn.muni_jail
 	WHERE kcid_match IS NOT NULL 
 	AND
 		(

@@ -30,7 +30,7 @@ FROM #phs_calocus_temp AS a LEFT JOIN
 		, agency_id
 		, composite_score
 		, ROW_NUMBER() OVER(PARTITION BY kcid, agency_id ORDER BY event_date DESC) AS rn
-		FROM ep_CALOCUS
+		FROM kcrsn.ep_CALOCUS
 		WHERE event_date <= DATEADD(m, 3, @calcDate)
 	) AS b
 	WHERE rn = 1
@@ -50,7 +50,7 @@ LEFT JOIN
 		, composite_score
 		, event_date
 		, ROW_NUMBER() OVER(PARTITION BY kcid, agency_id ORDER BY event_date DESC) AS rn
-		FROM ep_LOCUS
+		FROM kcrsn.ep_LOCUS
 		WHERE event_date <= DATEADD(m, 3, @calcDate)
 	) AS b
 	WHERE rn = 1

@@ -13,13 +13,13 @@ import sqlparams
 PYTHONPATH = sys.path.insert(0, os.getcwd())
 from db import qryhelper as qryhelper
 
-#Function to get one row per model input. Used to update au_stratum_score
+#Get one row per model input. Used to update au_stratum_score
 def get_score_lines(df, conn, calc_date):
     #Get scoring columns using reference table in PHP96
     cols = list(df.columns)
     qry = '''
         SELECT DISTINCT metric
-        FROM cd_stratum_metric
+        FROM kcrsn.cd_stratum_metric
         WHERE ? BETWEEN start_date AND end_date
         '''
     metric_df = pd.read_sql_query(qry, conn, params = [calc_date])
@@ -45,3 +45,22 @@ def get_score_lines(df, conn, calc_date):
     sql = qryhelper.get_query('phs_stratum_score.sql') #Read qry
     sql_out = pd.read_sql(sql, conn)
     return(sql_out)
+
+#Returns total scores and strat levels, given a client DF and score DF
+def get_total_score(df_client, df_score, conn):
+    #Identify the ID columns for total score summing
+    id_cols = ['auth_no', 'program', 'age_group', 'calc_date']
+    sum_vals = {'score': 'sum', 'missing_data': 'max'}
+    #Get total score as sum of scorelines
+    df_score_grp = df_score.groupby(id_cols).agg(sum_vals).reset_index()
+    #Load data to SQL
+    conn.execute("DROP TABLE IF EXISTS #phs_strat_level")
+    df_score_grp.to_sql('#phs_strat_level', conn)
+    #Read in and execute query
+    sql = qryhelper.get_query('phs_strat_level.sql')
+    sql_out = pd.read_sql(sql, conn)
+    #Merge to client DF, force clients under 6 into high
+    out = df_client.merge(sql_out, how = 'left')
+    out.loc[out.age < 6, 'strat_level'] = 'H'
+    #Return final product
+    return(out)

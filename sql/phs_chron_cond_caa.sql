@@ -6,7 +6,7 @@ WITH conds AS(
 		WHEN condition_code = '155' THEN 'caa_cvd'
 		ELSE 'caa_other' END AS condition_cat
 	, 1 AS indicator
-	FROM ma_cond_ass
+	FROM kcrsn.ma_cond_ass
 )
 SELECT a.auth_no
 , a.p1_id

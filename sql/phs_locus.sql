@@ -30,7 +30,7 @@ FROM #phs_locus_temp AS a LEFT JOIN
 		, agency_id
 		, composite_score
 		, ROW_NUMBER() OVER(PARTITION BY kcid, agency_id ORDER BY event_date DESC) AS rn
-		FROM ep_LOCUS
+		FROM kcrsn.ep_LOCUS
 		WHERE event_date <= DATEADD(m, 3, @calcDate)
 	) AS b
 	WHERE rn = 1
@@ -46,7 +46,7 @@ LEFT JOIN
 	FROM 
 	(
 		SELECT kcid, composite_score, event_date, ROW_NUMBER() OVER(PARTITION BY kcid, agency_id ORDER BY event_date DESC) AS rn
-		FROM ep_LOCUS
+		FROM kcrsn.ep_LOCUS
 		WHERE event_date <= DATEADD(m, 3, @calcDate)
 	) AS b
 	WHERE rn = 1

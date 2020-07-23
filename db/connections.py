@@ -4,11 +4,11 @@ import sys
 from sqlalchemy import create_engine, event
 import urllib
 
-def php96_engine():
+def php96_engine(uid, pwd):
     #Make connection string
     string = urllib.parse.quote_plus("DRIVER={SQL Server Native client 11.0};"
                                     r"SERVER=KCITEC2SQEPRP;DATABASE=php96;"
-                                    r"Trusted_connection=yes;MultiSubnetFailover=Yes;")
+                                    r"UID="+uid+";PWD="+pwd+";MultiSubnetFailover=Yes;")
 
     #Connect to php96
     engine = create_engine("mssql+pyodbc:///?odbc_connect=%s" % string)

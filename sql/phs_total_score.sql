@@ -1,5 +1,3 @@
-USE php96;
-
 --Add columns for previous authorization numbers
 ALTER TABLE ##rsTotalScoreTMP
 ADD first_strat_qstart DATE
@@ -22,7 +20,7 @@ LEFT JOIN
 		WHEN program IN('S01', 'S02', 'SOP', '500', '501') THEN 'SUD'
 		ELSE '' END AS tx_focus
 	, agency_id
-	FROM au_master
+	FROM kcrsn.au_master
 	WHERE status_code IN('AA', 'TM')
 		AND kcid IN(SELECT kcid FROM ##rsTotalScoreTMP) --To speed things up, only take KCIDs in our list
 ) AS b
@@ -35,7 +33,7 @@ ON a.kcid = b.kcid --Same client
 UPDATE ##rsTotalScoreTMP
 SET first_strat = b.strat_level
 FROM ##rsTotalScoreTMP AS a
-INNER JOIN au_stratum AS b ON a.auth_no = b.auth_no
+INNER JOIN kcrsn.au_stratum AS b ON a.auth_no = b.auth_no
 	AND a.first_strat_qstart = b.start_date;
 
 ALTER TABLE ##rsTotalScoreTMP
@@ -50,7 +48,7 @@ SELECT a.auth_no
 , b.strat_level
 , b.svc_hrs_req
 FROM ##rsTotalScoreTMP AS a
-LEFT JOIN cd_stratum_tier AS b ON a.program = b.program
+LEFT JOIN kcrsn.cd_stratum_tier AS b ON a.program = b.program
 	AND a.age_group = b.age_group
 	AND a.total_score BETWEEN range_low AND range_high
 	AND calc_date BETWEEN start_date AND end_date

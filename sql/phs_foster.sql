@@ -16,13 +16,13 @@ SET @edate = :calc_date;
 WITH fostHome AS(
 
 	SELECT DISTINCT kcid , 1 AS FOSTR
-	FROM ep_residence
+	FROM kcrsn.ep_residence
 	WHERE resid_arrng_code IN('26', '46', '47')
 ),
 /*Medicaid benefit indicative of foster care*/
 fostCov AS(
 	SELECT DISTINCT kcid, 1 AS FOSTR
-  	FROM ep_coverage_mco
+  	FROM kcrsn.ep_coverage_mco
   	WHERE plan_type = 'FOSTR'
 		AND start_date <= DATEADD(m, 1, @edate)
   	GROUP BY kcid

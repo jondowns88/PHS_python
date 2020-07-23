@@ -13,7 +13,7 @@
 WITH inFile AS(
 	SELECT DISTINCT a.*
 	FROM #phs_score AS a
-	INNER JOIN cd_stratum_pop_model AS b ON 
+	INNER JOIN kcrsn.cd_stratum_pop_model AS b ON 
 	/*Benefit type*/
 	a.program = b.program
 		AND a.age_group = b.age_group /*Age groups (A/C/G) */
@@ -30,7 +30,7 @@ SELECT a.auth_no
 , ISNULL(b.score, 0) AS score
 , a.missing_data
 FROM inFile AS a
-	LEFT JOIN cd_stratum_pop_model AS b ON 
+	LEFT JOIN kcrsn.cd_stratum_pop_model AS b ON 
 		a.program = b.program
 			AND a.age_group = b.age_group /*Age group*/
 			AND TRIM(a.metric) = TRIM(b.metric) /*Same metric for score and value*/

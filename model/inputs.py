@@ -16,7 +16,7 @@ from db import qryhelper as qryhelper
 
 #Find the minimum of the day jail data were updated and the calc date
 def get_jail_date(calc_date, conn):
-    qry = "SELECT MAX(booking_start) FROM muni_jail"
+    qry = "SELECT MAX(booking_start) FROM kcrsn.muni_jail"
     date = pd.read_sql_query(qry, conn).iloc[0].to_string().strip()
     date2 = datetime.datetime.strptime(date, "%Y-%m-%d").date()
     date_list = [date2, calc_date]
@@ -74,6 +74,7 @@ def get_foster(df, conn, calc_date):
     key_vars = ['kcid', 'auth_no']
     key_vars2 = ['kcid', 'auth_no', 'FOSTR']
     df_in = df[key_vars] #Subset input df
+    conn.execute("DROP TABLE IF EXISTS #phs_foster_temp")
     df_in.to_sql('#phs_foster_temp', con = conn) #make temp table
     #Read in and parameterize query
     sql = qryhelper.get_query('phs_foster.sql') #Read qry
@@ -85,7 +86,6 @@ def get_foster(df, conn, calc_date):
     out = df.merge(result2, how = 'left') #Merge to input df
     out['FOSTR'] = out['FOSTR'].fillna(0) #Replace NA's with 0
     out['FOSTR_missing_data'] = 'N' #Set missing flag to no (never missing)
-    conn.execute("DROP TABLE IF EXISTS #phs_foster_temp")
     return(out)
 
 #Get homeless status
@@ -94,6 +94,7 @@ def get_homeless(df, conn, calc_date):
     key_vars = ['kcid', 'auth_no']
     key_vars2 = ['kcid', 'auth_no', 'HMLES']
     df_in = df[key_vars] #Subset input df
+    conn.execute("DROP TABLE IF EXISTS #phs_homeless_temp")
     df_in.to_sql('#phs_homeless_temp', con = conn) #make temp table
     #Read in and parameterize query
     sql = qryhelper.get_query('phs_homeless.sql') #Read qry
@@ -105,7 +106,6 @@ def get_homeless(df, conn, calc_date):
     out = df.merge(result2, how = 'left') #Merge to input df
     out['HMLES'] = out['HMLES'].fillna(0) #Replace NA's with 0
     out['HMLES_missing_data'] = 'N' #Set missing flag to no (never missing)
-    conn.execute("DROP TABLE IF EXISTS #phs_homeless_temp")
     return(out)
 
 #Get chronic conditions
@@ -117,6 +117,7 @@ def get_chronic_conditions(df, php96_conn, phclaims_conn, calc_date):
     ph_dat = pd.read_sql(ph_sql2, phclaims_conn, params = ph_params) #Get result
     #Subset data for PHP96 query
     df_in = df[['auth_no', 'p1_id']]
+    php96_conn.execute("DROP TABLE IF EXISTS #phs_chron_cond_temp")
     df_in.to_sql('#phs_chron_cond_temp', con = php96_conn)
     #PHP96 query
     sql = qryhelper.get_query('phs_chron_cond_caa.sql') #Read qry
@@ -186,7 +187,7 @@ def get_asam(df, conn, calc_date):
     sp = sqlparams.SQLParams('named', 'qmark') #Parameterize qry
     sql2, params = sp.format(sql, {'calc_date':calc_date})
     sql_out = pd.read_sql(sql2, conn, params = params) #Get result
-    out = df.merge(sql_out, how = 'left')
+    out = df.merge(sql_out, how = 'left').fillna({'ASAM': 0})
     return(out)
 
 #Get injection drug use
