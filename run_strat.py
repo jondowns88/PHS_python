@@ -88,7 +88,7 @@ dat5 = inputs.get_homeless(dat4, php96, calc_date)
 dat6 = inputs.get_chronic_conditions(dat5, php96, phclaims, calc_date)
 dat7 = inputs.get_high_util(dat6, hhsaw, calc_date)
 dat8 = inputs.get_cj(dat7, php96, inputs.get_jail_date(calc_date, php96))
-#ASAM only: ASAM not going to PHS, no need to run these.
+#SUD only: SUD not going to PHS, no need to run these.
 #dat9 = inputs.get_asam(dat8, php96, calc_date)
 #dat10 = inputs.get_idu(dat9, php96, calc_date)
 
@@ -105,6 +105,7 @@ all_data = sda.get_sda(total_score,
     php96,
     sda_start,
     sda_end).drop(columns = drop_cols)
+pd.crosstab(all_data['strat_level'], columns = 'count')
 
 ##########################################
 #   Create production tables, load production data

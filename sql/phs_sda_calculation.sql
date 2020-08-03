@@ -18,13 +18,15 @@
 --					Future work will ensure clients are enrolled for a full 'calendar month' for an SDA calculation rather than 30+ days of service during the SDA period.
 --	6/3/2020 (JD): Added comments and clarity for presentation of the code at ISAC.
 --  6/17/2020 (JD): One calendar month rule implemented.
+--	8/3/2020 (JD): Fixed a bug in the SDA calculation. Clients with 0 enrollment days on the current auth are now evaluated for enrollment days on prior auth.
+--					Previous code assumed SDA could not be calculated if 0 SDA enrollment days were found on the current auth.
 /*
 	Note: In production, this script is called from R using the 'glue' package. This is why users will see text such as #phs_sda instead of normal SQL syntax.
 		  To run this script, users must first:
 			1) Create a list of clients that need SDA calculation.
 				--Include auth_no, kcid, program, and age_group (A/G/C).
 				--Store these columns in a temporary table. 
-				--Replace #phs_sda with the name of your temporary table, in normal SQL syntax (e.g. #my_temp).
+				--Replace #phs_sda with the name of your temporary table, in normal SQL syntax (e.g. #phs_sda).
 			2) Identify the start/end dates of the SDA calculation period:
 				--For Q1 stratifications, SDA runs from 9/1 - 11/30 of the prior year
 				--For Q2, SDA runs from 12/1 - 2/28 (2/29 if leap year)
@@ -56,7 +58,7 @@ SET @mo3_end = EOMONTH(@mo3_start);
 --SDA always extends across two calendar quarters. Thus, each SDA calculation can have more than one stratification during the SDA look-back. 
 --For example, the Q2 2020 SDA calc will use data from 12/1/2019 - 12/31/2019 (Q4) and 1/1/2020 - 2/29/2020 (Q1). 
 --So, let's start by pulling all of the LOC's that were active and the quarters in which they were active.
-DROP TABLE IF EXISTS #cur_strats
+DROP TABLE IF EXISTS #cur_strats;
 SELECT a.* --Your temporary input table
 , d.start_date AS auth_start --Start date from AU_MASTER
 , ISNULL(d.expire_date, @edate) AS auth_expire --Expire date from AU_MASTER
@@ -77,17 +79,17 @@ SELECT a.* --Your temporary input table
 	ELSE '' END AS tx_focus
 INTO #cur_strats
 FROM  #phs_sda AS a
-INNER JOIN kcrsn.au_stratum AS b ON a.auth_no = b.auth_no --Get stratifications
-LEFT JOIN kcrsn.cd_stratum_tier AS c ON a.program = c.program --Get service hours requested for strata (match on program/age/LOC)
-	AND b.age_group = c.age_group 
-	AND b.strat_level = c.strat_level
-LEFT JOIN kcrsn.au_master AS d ON a.auth_no = d.auth_no --Join to auths active during that time
-	WHERE 
-	(
+LEFT JOIN kcrsn.au_stratum AS b ON a.auth_no = b.auth_no --Get stratifications
+	AND (	
 		b.start_date BETWEEN @sdate AND @edate --Quarter began during SDA period
 		OR b.end_date BETWEEN @sdate AND @edate --Quarter ended during SDA period
 		OR (b.start_date <= @edate AND b.end_date >= @sdate) --Quarter contains dates in the SDA period
 	)
+LEFT JOIN kcrsn.cd_stratum_tier AS c ON 
+	CASE WHEN a.program IN('2X1', '3A1', '3B1') THEN '400' ELSE a.program END = c.program --Get service hours requested for strata (match on program/age/LOC)
+	AND b.age_group = c.age_group 
+	AND b.strat_level = c.strat_level
+LEFT JOIN kcrsn.au_master AS d ON a.auth_no = d.auth_no --Join to auths active during that time
 
 ---------------------------------------------------------
 --	Update start and end dates (current auth)
@@ -247,17 +249,17 @@ SELECT a.kcid
 , c.svc_hrs_req AS prev_svc_hrs_req
 INTO #prev_strats
 FROM #cur_sums AS a
-INNER JOIN kcrsn.au_stratum AS b ON a.prev_auth_no = b.auth_no
-LEFT JOIN kcrsn.cd_stratum_tier AS c ON a.program = c.program
-	AND b.age_group = c.age_group
-	AND b.strat_level = c.strat_level
-WHERE 
-	(
+LEFT JOIN kcrsn.au_stratum AS b ON a.prev_auth_no = b.auth_no
+	AND (
 		b.start_date BETWEEN @sdate AND @edate
 		OR b.end_date BETWEEN @sdate AND @edate
 		OR b.start_date <= @edate AND b.end_date >= @sdate
-	)
-	AND a.prev_auth_no IS NOT NULL
+	)		
+LEFT JOIN kcrsn.cd_stratum_tier AS c ON 
+	CASE WHEN a.program IN('2X1', '3A1', '3B1') THEN '400' ELSE a.program END = c.program
+	AND b.age_group = c.age_group
+	AND b.strat_level = c.strat_level
+WHERE a.prev_auth_no IS NOT NULL
 
 ---------------------------------------------------------
 --	Update start and end dates (prior auth)
@@ -333,7 +335,7 @@ SELECT kcid
 , auth_no
 , prev_auth_no
 , SUM(COALESCE(prev_enroll_days, 0)) AS prev_enroll_days
-, SUM(prev_svc_hrs_expected) AS prev_svc_hrs_expected
+, SUM(COALESCE(prev_svc_hrs_expected, 0)) AS prev_svc_hrs_expected
 , SUM(COALESCE(prev_svc_hrs, 0)) AS prev_svc_hrs
 INTO #prev_sums
 FROM #prev_strats
@@ -369,10 +371,10 @@ WITH temp_1 AS (
 	, auth_expire
 	, prev_auth_start
 	, prev_auth_expire
-	, CASE WHEN prev_auth_start IS NULL THEN auth_start
+	, CASE WHEN prev_auth_start IS NULL THEN auth_start --No start date for prior auth
 		WHEN DATEDIFF(d, auth_start, prev_auth_expire) <= 1 THEN prev_auth_start
 		WHEN COALESCE(prev_enroll_days, 0) > COALESCE(enroll_days, 0) THEN prev_auth_start
-		ELSE auth_start END AS longest_start
+		ELSE prev_auth_start END AS longest_start
 	, CASE WHEN prev_auth_expire IS NULL THEN auth_expire
 		WHEN DATEDIFF(d, auth_start, prev_auth_expire) <= 1 THEN auth_expire
 		WHEN COALESCE(prev_enroll_days, 0) > COALESCE(enroll_days, 0) THEN prev_auth_expire
@@ -413,7 +415,7 @@ LEFT JOIN temp_2 AS b ON a.kcid = b.kcid AND a.auth_no = b.auth_no
 --The 'sda_link' program will handle exceptions to normal SDA processes (i.e. full-pay for new clients)
 
 --Sum enrollment days, hours expected, and hours delivered
-DROP TABLE IF EXISTS #sda_final;
+DROP TABLE IF EXISTS ##sda_final;
 SELECT kcid
 , auth_no
 , program
@@ -423,27 +425,24 @@ SELECT kcid
 , COALESCE(enroll_days, 0) + COALESCE(prev_enroll_days, 0) AS enroll_days --Enrollment days from both auths (if applicable)
 , (COALESCE(svc_hrs_expected, 0) + COALESCE(prev_svc_hrs_expected, 0)) AS hrs_expected --Hours expected from both auths
 , COALESCE(svc_hrs, 0) + COALESCE(prev_svc_hrs, 0) AS svc_hrs --Service hours delivered on both auths
-INTO #sda_final
+INTO ##sda_final
 FROM #cur_sums
 
 --Add a prorated service hours delivered metric and the SDA metric to the final table
-ALTER TABLE #sda_final
+ALTER TABLE ##sda_final
 ADD svc_hrs_prorated DEC(6,3)
 , sda DEC(6,3);
 
 --Calculated a pro-rated version of both service hours delivered and service hours expected
-UPDATE #sda_final
+UPDATE ##sda_final
 SET svc_hrs_prorated = CASE WHEN enroll_days = 0 THEN NULL --No enrollment days
 							ELSE 30.0*svc_hrs/enroll_days END, --Else, get pro-rated SVC hours
 	hrs_expected = CASE WHEN enroll_days = 0 THEN NULL --No enrollment days
-							ELSE 30.0*(hrs_expected/enroll_days) END --Otherwise
+							ELSE 30.0*(hrs_expected/enroll_days) END --Otherwise, prorate the number of days
 
 --Finally, SDA is the ratio of prorated hours delivered / prorated hours expected
-UPDATE #sda_final
+UPDATE ##sda_final
 SET sda = CASE WHEN enroll_days < 28 THEN NULL --No SDA calculation: not enough enrollment
 				WHEN calendar_month = 0 THEN NULL --Not enrolled for a full calendar month
 				WHEN hrs_expected = 0 THEN NULL --No SDA calculation: no service hour expectation
 				ELSE svc_hrs_prorated/hrs_expected END --Otherwise, calculate SDA
-
-SELECT *
-FROM #sda_final
